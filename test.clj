@@ -1,4 +1,4 @@
-;(ns test)
+(ns test)
 
 (use '(java.awt.Color) 
      '(java.awt.Image) 
@@ -54,21 +54,30 @@
 
 ; g.setFont(g.getFont().deriveFont(Font.BOLD, 25));
 
-(defn new-img [x y] 
-  (new java.awt.image.BufferedImage x y java.awt.image.BufferedImage/TYPE_INT_ARGB))
+(defn new-img 
+  ([] (new-img 1 1))
+  ([x y] (new java.awt.image.BufferedImage x y java.awt.image.BufferedImage/TYPE_INT_ARGB)))
 
 ; TODO: measure actual render size of text and re-position accordingly
 (defn draw-str [n cs max-x max-y] 
-  (let [img (new-img max-x max-y)
-        g (. img getGraphics)
-        s (min max-x max-y)
-        i (/ s 10)] 
+  (let [txt (str n)
+        tmp (. (new-img) getGraphics)
+        f (.deriveFont (. tmp getFont) java.awt.Font/BOLD (float (* max-y 0.9)))
+        fm (. tmp getFontMetrics f)
+        y (- max-y (. fm getDescent))
+        h (. fm getHeight)
+        w (. fm stringWidth txt)
+        indent (/ max-y 10)
+        img-w (min max-x (+ w (* 2 indent)))
+        img (new-img img-w max-y)
+        g (. img getGraphics)]
+      (println (str "> " txt \. h \. f \. indent \. img-w))
       (doto g 
         (.setColor (nth cs 1))
-        (.fillRect 0 0 max-x max-y)
+        (.fillRect 0 0 img-w max-y)
         (.setColor (nth cs 3))
-        (.setFont (.deriveFont (. g getFont) java.awt.Font/BOLD (float s)))
-        (.drawString (str n) i (- max-y i)))
+        (.setFont f)
+        (.drawString txt indent y))
       img))
 
 (def numerals 
@@ -80,33 +89,78 @@
 (defn radians [n m] 
   (* (/ n m) (* 2 java.lang.Math/PI)))
 
-(defn pol-ps [n, cx, cy]
-  (map 
-    #(identity 
-      {:x (+ cx (* cx (java.lang.Math/sin (radians % n))))
-       :y (+ cy (* cy (java.lang.Math/cos (radians % n)))) }) 
-    (range n)))
+(defn poly-points [n, cx, cy]
+  (let [cxi (* 0.8 cx) cyi (* 0.8 cx)]
+    (map 
+      #(identity 
+        {:x (+ cx (* cxi (java.lang.Math/sin (- (radians % n) (radians 0.5 n)))))
+         :y (+ cy (* cyi (java.lang.Math/cos (- (radians % n) (radians 0.5 n))))) }) 
+      (range n))))
 
-(defn pol-rdr [{g :g pa :p} pb]
-  (doto g (.drawLine (:x pa) (:y pa) (:x pb) (:y pb) )) 
-  {:g g :p pb})
+(defn poly-rdr [poly point]
+  (. poly addPoint (:x point) (:y point))
+  poly)
 
 (defn draw-poly [n cs max-x max-y]
-  (let [img (new-img max-x max-y)
+  (let [size (min max-x max-y)
+        centre (/ size 2)
+        img (new-img size size)
         g (. img getGraphics)
-        s (min max-x max-y)
-        i (/ s 10)
-        ps (pol-ps n (/ max-x 2) (/ max-y 2))] 
+        ps (poly-points n centre centre)
+        poly (reduce poly-rdr (new java.awt.Polygon) ps)] 
       (doto g 
         (.setColor (nth cs 1))
-        (.fillRect 0 0 max-x max-y)
-        (.setColor (nth cs 3)))
-      (dorun (reduce pol-rdr {:g g :p (first ps)} (rest ps)))
+        (.fillRect 0 0 size size)
+        (.setColor (nth cs 2))
+        (.fillPolygon poly)
+        (.setColor (nth cs 3))
+        (.drawPolygon poly)
+      )
   img))
 
 (def polys 
-  (map partial (repeat draw-poly) (iterate inc 2)))
+  (map partial (repeat draw-poly) (iterate inc 0)))
 
+(def powers-of-two
+  (iterate (partial * 2) 1))
+
+(defn count-bits [n]
+  (loop [c 0 n n]
+    (if (> 1 n)
+      c
+      (recur (inc c) (/ n 2)))))
+
+(defn draw-bit [g n idx size max-y]
+  (let [indent (* size 0.05)
+        s (- size (* indent 2))
+        x (+ (* idx size) indent)
+        y (- (/ max-y 2) (/ s 2))]
+    (if (bit-test n idx)
+      (doto g (.fillRect x y s s) (.drawRect x y s s))
+      (. g drawRect x y s s)
+    )
+  )
+)
+
+;; take Integer/highestOneBit powers-of-two
+
+(defn draw-binary [n cs max-x max-y]
+  (let [bits (count-bits n)
+        bit-size (min max-y (/ max-x (max 1 bits)))
+        img (new-img (* (max 1 bits) bit-size) max-y)
+        g (. img getGraphics)]
+    (doto g 
+        (.setColor (nth cs 1))
+        (.fillRect 0 0 max-x max-y)
+        (.setColor (nth cs 3))
+    )
+    (dorun (map draw-bit (repeat g) (repeat n) (range bits) (repeat bit-size) (repeat max-y)))
+    img
+  )
+)
+
+(def binaries
+  (map partial (repeat draw-binary) (iterate inc 0)))
 
 (defn spit-img [img]
   (javax.imageio.ImageIO/write img "png" (new java.io.File "delme.png")))
@@ -144,4 +198,4 @@
 (defn babyshapes [n mx my cs & fss] 
   (reduce img-merge-h (map bob (repeat n) fss (repeat mx) (repeat my) (repeat cs))))
 
-(spit-img (babyshapes 10 50 50 colours numerals alphas polys))
+(spit-img (babyshapes 10 750 150 colours numerals alphas polys binaries))
