@@ -131,7 +131,7 @@
       (recur (inc c) (/ n 2)))))
 
 (defn draw-bit [g n idx size max-y]
-  (let [indent (* size 0.05)
+  (let [indent (* size 0.1)
         s (- size (* indent 2))
         x (+ (* idx size) indent)
         y (- (/ max-y 2) (/ s 2))]
@@ -195,7 +195,24 @@
 (defn bob [n nms x y cs] 
   (reduce img-merge-v (map apply (take n nms) cs (repeat (list x y)))))
 
+(defn filled-back [img cs each]
+  (let [w (.getWidth img)
+        h (.getHeight img)
+        back (new-img w h)
+        g (. back getGraphics)]
+    (doall (map 
+      #(doto g 
+        (.setColor (nth %2 1))
+        (.fillRect 0 %1 w (+ %1 each)))
+      (range 0 h each)
+      cs)) 
+    back))
+
 (defn babyshapes [n mx my cs & fss] 
-  (reduce img-merge-h (map bob (repeat n) fss (repeat mx) (repeat my) (repeat cs))))
+  (let [img (reduce img-merge-h (map bob (repeat n) fss (repeat mx) (repeat my) (repeat cs)))
+        back (filled-back img (rest cs) my)
+        g (. back getGraphics)]
+    (. g drawImage img 0 0 nil)
+    back))
 
 (spit-img (babyshapes 10 750 150 colours numerals alphas polys binaries))
