@@ -58,7 +58,6 @@
   ([] (new-img 1 1))
   ([x y] (new java.awt.image.BufferedImage x y java.awt.image.BufferedImage/TYPE_INT_ARGB)))
 
-; TODO: measure actual render size of text and re-position accordingly
 (defn draw-str [n cs max-x max-y] 
   (let [txt (str n)
         tmp (. (new-img) getGraphics)
@@ -73,8 +72,8 @@
         g (. img getGraphics)]
       (println (str "> " txt \. h \. f \. indent \. img-w))
       (doto g 
-        (.setColor (nth cs 1))
-        (.fillRect 0 0 img-w max-y)
+;        (.setColor (nth cs 1))
+;        (.fillRect 0 0 img-w max-y)
         (.setColor (nth cs 3))
         (.setFont f)
         (.drawString txt indent y))
@@ -109,8 +108,8 @@
         ps (poly-points n centre centre)
         poly (reduce poly-rdr (new java.awt.Polygon) ps)] 
       (doto g 
-        (.setColor (nth cs 1))
-        (.fillRect 0 0 size size)
+   ;     (.setColor (nth cs 1))
+   ;     (.fillRect 0 0 size size)
         (.setColor (nth cs 2))
         (.fillPolygon poly)
         (.setColor (nth cs 3))
@@ -149,11 +148,7 @@
         bit-size (min max-y (/ max-x (max 1 bits)))
         img (new-img (* (max 1 bits) bit-size) max-y)
         g (. img getGraphics)]
-    (doto g 
-        (.setColor (nth cs 1))
-        (.fillRect 0 0 max-x max-y)
-        (.setColor (nth cs 3))
-    )
+    (doto g (.setColor (nth cs 3)))
     (dorun (map draw-bit (repeat g) (repeat n) (range bits) (repeat bit-size) (repeat max-y)))
     img
   )
@@ -200,7 +195,7 @@
         h (.getHeight img)
         back (new-img w h)
         g (. back getGraphics)]
-    (doall (map 
+    (dorun (map 
       #(doto g 
         (.setColor (nth %2 1))
         (.fillRect 0 %1 w (+ %1 each)))
@@ -210,7 +205,7 @@
 
 (defn babyshapes [n mx my cs & fss] 
   (let [img (reduce img-merge-h (map bob (repeat n) fss (repeat mx) (repeat my) (repeat cs)))
-        back (filled-back img (rest cs) my)
+        back (filled-back img cs my)
         g (. back getGraphics)]
     (. g drawImage img 0 0 nil)
     back))
