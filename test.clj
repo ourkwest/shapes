@@ -72,8 +72,6 @@
         g (. img getGraphics)]
       (println (str "> " txt \. h \. f \. indent \. img-w))
       (doto g 
-;        (.setColor (nth cs 1))
-;        (.fillRect 0 0 img-w max-y)
         (.setColor (nth cs 3))
         (.setFont f)
         (.drawString txt indent y))
@@ -108,8 +106,6 @@
         ps (poly-points n centre centre)
         poly (reduce poly-rdr (new java.awt.Polygon) ps)] 
       (doto g 
-   ;     (.setColor (nth cs 1))
-   ;     (.fillRect 0 0 size size)
         (.setColor (nth cs 2))
         (.fillPolygon poly)
         (.setColor (nth cs 3))
@@ -141,8 +137,6 @@
   )
 )
 
-;; take Integer/highestOneBit powers-of-two
-
 (defn draw-binary [n cs max-x max-y]
   (let [bits (count-bits n)
         bit-size (min max-y (/ max-x (max 1 bits)))
@@ -159,13 +153,6 @@
 
 (defn spit-img [img]
   (javax.imageio.ImageIO/write img "png" (new java.io.File "delme.png")))
-
-;(def my-img ((first numerals) 50 50))
-
-;(spit-img my-img)
-
-; provide maximum dimensions
-; return an image
 
 (defn img-merge-v [a b] 
   (let [img (new-img (max (. a getWidth) (. b getWidth)) (+ (. a getHeight) (. b getHeight)))
