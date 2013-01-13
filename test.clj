@@ -4,8 +4,6 @@
      '(java.awt.Image) 
      '(java.awt.image.BufferedImage))
 
-(println (str "Hello" " " "Bob"))
-
 
 
 (def theta 0.3)
@@ -52,11 +50,13 @@
 
 (spit (new java.io.File "delme.html") (fmt-all colours))
 
-; g.setFont(g.getFont().deriveFont(Font.BOLD, 25));
 
 (defn new-img 
   ([] (new-img 1 1))
   ([x y] (new java.awt.image.BufferedImage x y java.awt.image.BufferedImage/TYPE_INT_ARGB)))
+
+
+;; Text
 
 (defn draw-str [n cs max-x max-y] 
   (let [txt (str n)
@@ -83,6 +83,9 @@
 (def alphas 
   (map partial (repeat draw-str) (map char (iterate inc 65))))
 
+
+;; Polygons
+
 (defn radians [n m] 
   (* (/ n m) (* 2 java.lang.Math/PI)))
 
@@ -107,6 +110,7 @@
         poly (reduce poly-rdr (new java.awt.Polygon) ps)] 
       (doto g 
         (.setColor (nth cs 2))
+        (.setStroke (java.awt.BasicStroke. 1))
         (.fillPolygon poly)
         (.setColor (nth cs 3))
         (.drawPolygon poly)
@@ -115,6 +119,9 @@
 
 (def polys 
   (map partial (repeat draw-poly) (iterate inc 0)))
+
+
+;; Binary
 
 (def powers-of-two
   (iterate (partial * 2) 1))
@@ -130,6 +137,7 @@
         s (- size (* indent 2))
         x (+ (* idx size) indent)
         y (- (/ max-y 2) (/ s 2))]
+    (. g setStroke (java.awt.BasicStroke. 3))
     (if (bit-test n idx)
       (doto g (.fillRect x y s s) (.drawRect x y s s))
       (. g drawRect x y s s)
@@ -137,19 +145,59 @@
   )
 )
 
+(defn draw-bit2 [g n b space size] 
+  (let [x (- (* space (+ b 1.5)) (/ size 2))
+        y (- space (/ size 2))]
+    (if (bit-test n b)
+      (doto g (.fillRect x y size size) (.drawRect x y size size))
+      (. g drawRect x y size size)
+  )))
+
 (defn draw-binary [n cs max-x max-y]
-  (let [bits (count-bits n)
-        bit-size (min max-y (/ max-x (max 1 bits)))
-        img (new-img (* (max 1 bits) bit-size) max-y)
+  (let [
+        ;bits (count-bits n)
+        ;bit-size (min max-y (/ max-x (max 1 bits)))
+        ;img (new-img (* (max 1 bits) bit-size) max-y)
+        ;g (. img getGraphics)
+
+        bits (count-bits n)
+        space (/ max-y 2)
+        indent (* space 0.1)
+        size (- space indent indent)
+        w (* space (+ bits 2))
+        img (new-img w max-y)
         g (. img getGraphics)]
-    (doto g (.setColor (nth cs 3)))
-    (dorun (map draw-bit (repeat g) (repeat n) (range bits) (repeat bit-size) (repeat max-y)))
+    (. g setColor (nth cs 3))
+    (. g setStroke (java.awt.BasicStroke. 3))
+;    (dorun (map draw-bit (repeat g) (repeat n) (range bits) (repeat bit-size) (repeat max-y)))
+    (dorun (map draw-bit2 (repeat g) (repeat n) (range bits) (repeat space) (repeat size)))
     img
   )
 )
 
 (def binaries
   (map partial (repeat draw-binary) (iterate inc 0)))
+
+
+;;  Dots
+
+(defn draw-dots [n cs max-x max-y]
+  (let [space (/ max-y 2)
+        indent (* space 0.1)
+        size (- space indent indent)
+        w (* space (+ n 2))
+        img (new-img w max-y)
+        g (. img getGraphics)]
+    (. g setColor (nth cs 3))
+    (doseq [i (range 1 (inc n))] 
+      (. g fillArc (+ (* space i) indent) (+ (/ max-y 4) indent) size size 0 360))
+    img))
+
+(def dots
+  (map partial (repeat draw-dots) (iterate inc 0)))
+
+;;  Assembly
+
 
 (defn spit-img [img]
   (javax.imageio.ImageIO/write img "png" (new java.io.File "delme.png")))
@@ -197,4 +245,4 @@
     (. g drawImage img 0 0 nil)
     back))
 
-(spit-img (babyshapes 10 750 150 colours numerals alphas polys binaries))
+(spit-img (babyshapes 26 750 150 colours numerals alphas polys binaries dots))
