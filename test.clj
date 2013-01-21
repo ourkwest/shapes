@@ -6,7 +6,7 @@
 
 
 
-(def theta 0.3)
+(def theta (/ (+ (* 26 1.5) 1) 26))
 (def primary 0)
 
 (defn make-colour [a]
@@ -53,6 +53,7 @@
 
 (defn new-img 
   ([] (new-img 1 1))
+  ([i] (new-img (. i getWidth) (. i getHeight)))
   ([x y] (new java.awt.image.BufferedImage x y java.awt.image.BufferedImage/TYPE_INT_ARGB)))
 
 
@@ -66,7 +67,7 @@
         y (- max-y (. fm getDescent))
         h (. fm getHeight)
         w (. fm stringWidth txt)
-        indent (/ max-y 10)
+        indent (/ max-y 5)
         img-w (min max-x (+ w (* 2 indent)))
         img (new-img img-w max-y)
         g (. img getGraphics)]
@@ -132,35 +133,28 @@
       c
       (recur (inc c) (/ n 2)))))
 
-(defn draw-bit [g n idx size max-y]
-  (let [indent (* size 0.1)
-        s (- size (* indent 2))
-        x (+ (* idx size) indent)
-        y (- (/ max-y 2) (/ s 2))]
-    (. g setStroke (java.awt.BasicStroke. 3))
-    (if (bit-test n idx)
-      (doto g (.fillRect x y s s) (.drawRect x y s s))
-      (. g drawRect x y s s)
-    )
-  )
-)
-
-(defn draw-bit2 [g n b space size] 
+(defn draw-bit [g n b space size] 
   (let [x (- (* space (+ b 1.5)) (/ size 2))
         y (- space (/ size 2))]
     (if (bit-test n b)
       (doto g (.fillRect x y size size) (.drawRect x y size size))
-      (. g drawRect x y size size)
-  )))
+      (. g drawRect x y size size))))
+
+(defn spin [img]
+  (let [i (new-img img)
+        g (. i getGraphics)]
+    (doto g 
+      (.drawImage 
+        img 
+        (java.awt.geom.AffineTransform/getRotateInstance 
+          (java.lang.Math/PI) 
+          (/ (.getWidth i) 2) 
+          (/ (.getHeight i) 2)) 
+        nil))
+    i))
 
 (defn draw-binary [n cs max-x max-y]
-  (let [
-        ;bits (count-bits n)
-        ;bit-size (min max-y (/ max-x (max 1 bits)))
-        ;img (new-img (* (max 1 bits) bit-size) max-y)
-        ;g (. img getGraphics)
-
-        bits (count-bits n)
+  (let [bits (count-bits n)
         space (/ max-y 2)
         indent (* space 0.1)
         size (- space indent indent)
@@ -169,11 +163,8 @@
         g (. img getGraphics)]
     (. g setColor (nth cs 3))
     (. g setStroke (java.awt.BasicStroke. 3))
-;    (dorun (map draw-bit (repeat g) (repeat n) (range bits) (repeat bit-size) (repeat max-y)))
-    (dorun (map draw-bit2 (repeat g) (repeat n) (range bits) (repeat space) (repeat size)))
-    img
-  )
-)
+    (dorun (map draw-bit (repeat g) (repeat n) (range bits) (repeat space) (repeat size)))
+    (spin img)))
 
 (def binaries
   (map partial (repeat draw-binary) (iterate inc 0)))
@@ -202,8 +193,24 @@
 (defn spit-img [img]
   (javax.imageio.ImageIO/write img "png" (new java.io.File "delme.png")))
 
+
+
+(defn merger-v [r]
+  (fn [a b]
+    (let [w (max (. a getWidth) (. b getWidth))
+          h (+ (. a getHeight) (. b getHeight))
+          img (new-img w h)
+          g (. img getGraphics)
+          x (if r #(- w (. % getWidth)) (fn [a] 0))] 
+      (doto g 
+        (.drawImage a (x a) 0 nil)
+        (.drawImage b (x b) (. a getHeight) nil))
+      img)))
+
 (defn img-merge-v [a b] 
-  (let [img (new-img (max (. a getWidth) (. b getWidth)) (+ (. a getHeight) (. b getHeight)))
+  (let [w (max (. a getWidth) (. b getWidth))
+        h (+ (. a getHeight) (. b getHeight))
+        img (new-img w h)
         g (. img getGraphics)] 
        (doto g 
          (.drawImage a 0 0 nil)
@@ -222,8 +229,8 @@
 (defn render-col [n mx my cs fs] 
   (reduce img-merge-v (map apply (take n fs) (repeat (list mx my)))))
 
-(defn bob [n nms x y cs] 
-  (reduce img-merge-v (map apply (take n nms) cs (repeat (list x y)))))
+(defn bob [n nms x y cs r] 
+  (reduce (merger-v r) (map apply (take n nms) cs (repeat (list x y)))))
 
 (defn filled-back [img cs each]
   (let [w (.getWidth img)
@@ -239,10 +246,20 @@
     back))
 
 (defn babyshapes [n mx my cs & fss] 
-  (let [img (reduce img-merge-h (map bob (repeat n) fss (repeat mx) (repeat my) (repeat cs)))
+  (let [img (reduce img-merge-h 
+              (map bob (repeat n) fss (repeat mx) (repeat my) (repeat cs) (cycle [true false])))
         back (filled-back img cs my)
         g (. back getGraphics)]
     (. g drawImage img 0 0 nil)
     back))
 
-(spit-img (babyshapes 26 750 150 colours numerals alphas polys binaries dots))
+(spit-img (babyshapes 26 750 150 colours numerals alphas binaries dots polys))
+
+;; Roman numerals
+;; Numbers written as words
+;; | || ||| |||| ++++ (with strikethrough on five)
+;; Fibonacci?
+;; Primes?
+;; Some sort of fractal spirally thing??!!??!!??
+
+
