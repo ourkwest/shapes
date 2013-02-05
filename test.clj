@@ -55,6 +55,7 @@
 (defn align-right [x] (align "right" x))
 (defn align-right? [x] (= (alignment x) "right"))
 
+
 ;; Text
 
 (defn draw-str [n cs max-x max-y] 
@@ -135,20 +136,22 @@
   (let [size (min max-x max-y)
         centre (/ size 2)
         img (new-img size size)
-        g (. img getGraphics)
+        g (gfx img)
         ps (poly-points n centre centre)
         poly (reduce poly-rdr (new java.awt.Polygon) ps)] 
       (doto g 
         (.setColor (nth cs 2))
-        (.setStroke (java.awt.BasicStroke. 1))
+        (.setStroke (java.awt.BasicStroke. 6))
         (.fillPolygon poly)
         (.setColor (nth cs 3))
         (.drawPolygon poly)
       )
   img))
 
+(def no-ops (draw-str-seq (repeat " ")))
+
 (def polys 
-  (map partial (repeat draw-poly) (iterate inc 0)))
+  (concat (take 3 no-ops) (map partial (repeat draw-poly) (iterate inc 3))))
 
 
 ;; Binary
