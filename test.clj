@@ -2,9 +2,11 @@
 
 (use '(java.awt.Color) 
      '(java.awt.Image) 
-     '(java.awt.image.BufferedImage))
+     '(java.awt.image.BufferedImage)
+     '(java.awt.RenderingHints))
 
 
+;; Colours
 
 (def theta (/ (+ (* 26 1.5) 1) 26))
 (def primary 0)
@@ -24,38 +26,34 @@
 (def colours 
   (map make-colour (iterate (partial + theta) primary)))
 
-
-(defn fmt [i]
-  (let [a (first i) b (last i)]
-  (str 
-    "<span style=\"background: RGB(" 
-    (.getRed a)
-    ", "
-    (.getBlue a)
-    ", "
-    (.getGreen a)
-    "); \"> . . . . . . . . . . . </span>"
-
-    "<span style=\"background: RGB(" 
-    (.getRed b)
-    ", "
-    (.getBlue b)
-    ", "
-    (.getGreen b)
-    "); \"> . . . . . . . . . . . </span>"
-    "<br />" )))
-
-(defn fmt-all [c]
-  (apply str (map fmt (take 15 colours))))
-
-(spit (new java.io.File "delme.html") (fmt-all colours))
-
+;; Util
 
 (defn new-img 
   ([] (new-img 1 1))
   ([i] (new-img (. i getWidth) (. i getHeight)))
   ([x y] (new java.awt.image.BufferedImage x y java.awt.image.BufferedImage/TYPE_INT_ARGB)))
 
+(defn gfx [img]
+  (let [g (. img getGraphics)]
+    (. g setRenderingHint java.awt.RenderingHints/KEY_ANTIALIASING java.awt.RenderingHints/VALUE_ANTIALIAS_ON)
+    g))
+
+;; g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+
+(defn spit-img [img]
+  (javax.imageio.ImageIO/write img "png" (new java.io.File "delme.png")))
+
+(defn long-tail [tail & items]
+  (concat items (repeat tail)))
+
+(defn align [a x]
+  (with-meta x {:align a}))
+
+(defn alignment [x]
+  (:align (meta x)))
+
+(defn align-right [x] (align "right" x))
+(defn align-right? [x] (= (alignment x) "right"))
 
 ;; Text
 
@@ -68,22 +66,53 @@
         h (. fm getHeight)
         w (. fm stringWidth txt)
         indent (/ max-y 5)
-        img-w (min max-x (+ w (* 2 indent)))
+        img-w (+ w (* 2 indent))
         img (new-img img-w max-y)
-        g (. img getGraphics)]
-      (println (str "> " txt \. h \. f \. indent \. img-w))
+        g (gfx img)]
+;;      (println (str "> " txt \. h \. f \. indent \. img-w))
       (doto g 
         (.setColor (nth cs 3))
         (.setFont f)
         (.drawString txt indent y))
       img))
 
-(def numerals 
-  (map partial (repeat draw-str) (iterate inc 0)))
+(defn draw-str-seq [txt-seq]
+  (map partial (repeat draw-str) txt-seq))
 
-(def alphas 
-  (map partial (repeat draw-str) (map char (iterate inc 65))))
+;; Text Sequences
 
+(def numerals (align-right (draw-str-seq (iterate inc 0))))
+
+(def uppers (draw-str-seq (map char (iterate inc 65))))
+(def lowers (draw-str-seq (map char (iterate inc 97))))
+(def letters 
+  (draw-str-seq 
+    (map str 
+      (map char (iterate inc 65)) 
+      (map char (iterate inc 97)))))
+
+(def number-words 
+  (draw-str-seq (long-tail " " 
+    "Zero" "One" "Two" "Three" "Four" "Five" "Six" "Seven" "Eight" "Nine" "Ten"
+    "Eleven" "Twelve" "Thirteen" "Fourteen" "Fifteen" "Sixteen" "Seventeen" "Eighteen" 
+    "Nineteen" "Twenty" "Twenty-one" "Twenty-two" "Twenty-three" "Twenty-four" "Twenty-five")))
+
+;; Roman numerals
+
+(def rom-nums [1000, 900, 500, 400, 100, 90, 50, 40, 10, 9, 5, 4, 1])
+(def rom-strs ["M", "CM", "D", "CD", "C", "XC", "L", "XL", "X", "IX", "V", "IV", "I"])
+
+(defn roman-loop [vals roms rem out] 
+  (let [val (first vals)
+        rom (first roms)]
+    (cond 
+      (not val) out
+      (<= val rem) (recur vals roms (- rem val) (str out rom))
+      :else (recur (rest vals) (rest roms) rem out))))
+
+(defn to-roman [n] (roman-loop rom-nums rom-strs n ""))
+
+(def romans (draw-str-seq (map to-roman (iterate inc 0))))
 
 ;; Polygons
 
@@ -142,7 +171,7 @@
 
 (defn spin [img]
   (let [i (new-img img)
-        g (. i getGraphics)]
+        g (gfx i)]
     (doto g 
       (.drawImage 
         img 
@@ -160,15 +189,14 @@
         size (- space indent indent)
         w (* space (+ bits 2))
         img (new-img w max-y)
-        g (. img getGraphics)]
+        g (gfx img)]
     (. g setColor (nth cs 3))
-    (. g setStroke (java.awt.BasicStroke. 3))
+    (. g setStroke (java.awt.BasicStroke. 6))
     (dorun (map draw-bit (repeat g) (repeat n) (range bits) (repeat space) (repeat size)))
     (spin img)))
 
 (def binaries
-  (map partial (repeat draw-binary) (iterate inc 0)))
-
+  (align-right (map partial (repeat draw-binary) (iterate inc 0))) )
 
 ;;  Dots
 
@@ -178,7 +206,7 @@
         size (- space indent indent)
         w (* space (+ n 2))
         img (new-img w max-y)
-        g (. img getGraphics)]
+        g (gfx img)]
     (. g setColor (nth cs 3))
     (doseq [i (range 1 (inc n))] 
       (. g fillArc (+ (* space i) indent) (+ (/ max-y 4) indent) size size 0 360))
@@ -187,13 +215,8 @@
 (def dots
   (map partial (repeat draw-dots) (iterate inc 0)))
 
+
 ;;  Assembly
-
-
-(defn spit-img [img]
-  (javax.imageio.ImageIO/write img "png" (new java.io.File "delme.png")))
-
-
 
 (defn merger-v [r]
   (fn [a b]
@@ -230,7 +253,7 @@
   (reduce img-merge-v (map apply (take n fs) (repeat (list mx my)))))
 
 (defn bob [n nms x y cs r] 
-  (reduce (merger-v r) (map apply (take n nms) cs (repeat (list x y)))))
+  (reduce (merger-v (align-right? nms)) (map apply (take n nms) cs (repeat (list x y)))))
 
 (defn filled-back [img cs each]
   (let [w (.getWidth img)
@@ -253,10 +276,16 @@
     (. g drawImage img 0 0 nil)
     back))
 
-(spit-img (babyshapes 26 750 150 colours numerals alphas binaries dots polys))
+(spit-img (babyshapes 26 750 150 colours 
+  numerals 
+  letters 
+  binaries 
+  dots 
+  polys
+  number-words
+  romans))
 
-;; Roman numerals
-;; Numbers written as words
+
 ;; | || ||| |||| ++++ (with strikethrough on five)
 ;; Fibonacci?
 ;; Primes?
